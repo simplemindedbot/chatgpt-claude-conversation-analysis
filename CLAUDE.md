@@ -42,14 +42,18 @@ python chat_analysis_setup.py
 The project consists of a two-stage data processing pipeline:
 
 ### Stage 1: Data Normalization
+
 **normalize_chats.py**: Converts raw AI chat exports into standardized CSV format
+
 - Handles ChatGPT conversation exports (complex nested JSON structure)
 - Handles Claude conversation exports (simpler JSON structure)
 - Normalizes different message content types and formats
 - Produces unified CSV with standardized columns
 
 ### Stage 2: NLP Analysis
+
 **ChatAnalyzer** (`chat_analysis_setup.py`): Main analysis class that handles:
+
 - Database setup (SQLite with 4 main tables)
 - CSV ingestion with column mapping
 - NLP feature extraction (spaCy, NLTK, sentence-transformers)
@@ -57,11 +61,13 @@ The project consists of a two-stage data processing pipeline:
 - Conversation-level analysis
 
 **process_runner.py**: CLI script that orchestrates the full pipeline:
+
 - CSV ingestion → Feature extraction → Embedding generation → Conversation analysis
 
 ### Database Schema
 
 The system creates a SQLite database (`chat_analysis.db`) with these tables:
+
 - `raw_conversations`: Original message data
 - `message_features`: Extracted NLP features (sentiment, entities, content type)
 - `conversation_features`: Aggregated conversation-level metrics
@@ -82,6 +88,7 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 ### Supported AI Platforms
 
 **ChatGPT Export Format:**
+
 - Complex nested JSON with conversation `mapping` structure
 - Messages stored as node objects with parent-child relationships
 - Multiple content types: text, multimodal_text, code, thoughts, user_editable_context
@@ -89,6 +96,7 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 - Role mapping: user → User, assistant → Assistant
 
 **Claude Export Format:**
+
 - Simpler JSON array of conversation objects
 - Direct `chat_messages` array within each conversation
 - Content stored as array of content blocks with type indicators
@@ -98,6 +106,7 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 ### Content Type Handling
 
 The normalization script handles various message content types:
+
 - **Text messages**: Standard conversational text
 - **Code blocks**: Programming code and technical content
 - **Multimodal content**: Text with images (text portions extracted)
@@ -117,6 +126,7 @@ The normalization script handles various message content types:
 ### Dependencies
 
 Key libraries used:
+
 - **NLP**: spacy, nltk, sentence-transformers, transformers
 - **ML**: scikit-learn, umap-learn, hdbscan, bertopic
 - **Data**: pandas, numpy, sqlite3
@@ -126,21 +136,25 @@ Key libraries used:
 ### Project Files
 
 **Core Processing:**
+
 - `normalize_chats.py`: Converts raw AI chat JSON exports to standardized CSV format
 - `chat_analysis_setup.py`: Main ChatAnalyzer class with all NLP processing logic
 - `process_runner.py`: CLI script to run the full analysis pipeline
 
 **Analysis & Visualization:**
+
 - `chat_analysis_notebook.ipynb`: Comprehensive Jupyter notebook for data analysis and visualization
 - Interactive dashboard with temporal analysis, sentiment tracking, conversation patterns
 
 **Data Files:**
+
 - `chatgpt_conversations.json`: Raw ChatGPT export data (90.7MB)
 - `claude_conversations.json`: Raw Claude export data (19.7MB)
 - `combined_ai_chat_history.csv`: Normalized CSV output from both sources
 - `sample_chat_history.csv`: Sample test data for development
 
 **Configuration:**
+
 - `requirements.txt`: Python dependencies
 - `chat_analysis_env/`: Virtual environment directory
 - `.gitignore`: Git ignore rules for generated files and dependencies

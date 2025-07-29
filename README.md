@@ -34,7 +34,7 @@ python -m spacy download en_core_web_sm
 ### 2. Get Your Chat Data
 
 #### ChatGPT Data Export
-1. Go to [ChatGPT Data Controls](https://chatgpt.com/settings/data-controls)
+1. Follow the instructions on [ChatGPT Data Controls](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data)
 2. Click "Export data"
 3. Wait for email with download link
 4. Extract the `conversations.json` file and rename to `chatgpt_conversations.json`
