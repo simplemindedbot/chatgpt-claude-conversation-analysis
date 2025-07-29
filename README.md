@@ -34,14 +34,16 @@ python -m spacy download en_core_web_sm
 ### 2. Get Your Chat Data
 
 #### ChatGPT Data Export
+
 1. Follow the instructions on [ChatGPT Data Controls](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data)
 2. Click "Export data"
 3. Wait for email with download link
 4. Extract the `conversations.json` file and rename to `chatgpt_conversations.json`
 
 #### Claude Data Export  
+
 1. Go to [Claude Privacy Controls](https://claude.ai/settings/data-privacy-controls)
-2. Click "Export data" 
+2. Click "Export data"
 3. Download the export file
 4. Extract the `conversations.json` file and rename to `claude_conversations.json`
 
@@ -61,11 +63,13 @@ jupyter notebook chat_analysis_notebook.ipynb
 ## 📊 Analysis Pipeline
 
 ### Stage 1: Data Normalization
+
 - **Input**: Raw JSON exports from AI platforms
 - **Process**: Handles different export formats, content types, timestamps
 - **Output**: Standardized CSV with unified schema
 
 ### Stage 2: NLP Processing
+
 - **Content Analysis**: Detects code, URLs, questions, technical terms
 - **Sentiment Analysis**: NLTK VADER sentiment scoring
 - **Entity Recognition**: spaCy named entity recognition
@@ -74,7 +78,7 @@ jupyter notebook chat_analysis_notebook.ipynb
 
 ## 🏗️ Architecture
 
-```
+```txt
 Raw JSON Exports → Normalization → NLP Processing → Database → Analysis
      ↓                   ↓              ↓           ↓         ↓
 ChatGPT/Claude     Unified CSV    Feature Extract   SQLite   Jupyter
@@ -104,6 +108,7 @@ The pipeline is optimized for high-performance processing:
 ## 🔍 Analysis Features
 
 ### Interactive Jupyter Dashboard
+
 - **Activity Patterns**: Messages over time, hourly/daily trends
 - **Content Analysis**: Code vs discussion ratios, content type distributions
 - **Sentiment Tracking**: Sentiment trends over time and by AI source
@@ -111,6 +116,7 @@ The pipeline is optimized for high-performance processing:
 - **Custom Queries**: Search conversations by topic or content
 
 ### Key Metrics
+
 - Message and conversation counts by AI source
 - Temporal activity patterns
 - Content type classifications (code, questions, explanations, etc.)
@@ -131,11 +137,13 @@ The pipeline automatically classifies messages into categories:
 ## 🛠️ Configuration
 
 ### Processing Options
+
 - `batch_size`: Messages per processing batch (default: 500)
 - `use_multiprocessing`: Enable/disable parallel processing (default: True)
 - `core_fraction`: Fraction of CPU cores to use (default: 0.75)
 
 ### Example Custom Processing
+
 ```python
 from chat_analysis_setup import ChatAnalyzer
 
@@ -150,6 +158,7 @@ analyzer.extract_features(batch_size=1000, core_fraction=0.5)  # Use 50% of core
 - Multi-core CPU recommended for optimal performance
 
 ### Key Dependencies
+
 - **NLP**: spaCy, NLTK, sentence-transformers
 - **Data**: pandas, numpy, sqlite3
 - **Visualization**: plotly, matplotlib, seaborn
@@ -158,7 +167,7 @@ analyzer.extract_features(batch_size=1000, core_fraction=0.5)  # Use 50% of core
 
 ## 🗂️ Project Structure
 
-```
+``` txt
 chat-analysis/
 ├── normalize_chats.py              # JSON to CSV conversion
 ├── chat_analysis_setup.py          # Main NLP processing class
@@ -202,17 +211,20 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ### Common Issues
 
 **"ModuleNotFoundError"**: Ensure virtual environment is activated and dependencies installed
+
 ```bash
 source chat_analysis_env/bin/activate
 pip install -r requirements.txt
 ```
 
 **"spaCy model not found"**: Download the required language model
+
 ```bash
 python -m spacy download en_core_web_sm
 ```
 
 **"Memory errors"**: Reduce batch size for large datasets
+
 ```python
 python process_runner.py your_file.csv --batch-size 100
 ```
@@ -234,4 +246,4 @@ python process_runner.py your_file.csv --batch-size 100
 
 ---
 
-**Built with ❤️ for AI conversation analysis**
+### Built with ❤️ for AI conversation analysis
