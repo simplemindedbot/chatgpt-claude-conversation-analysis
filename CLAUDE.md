@@ -30,6 +30,9 @@ python process_runner.py <path_to_csv>
 python process_runner.py sample_chat_history.csv
 python process_runner.py combined_ai_chat_history.csv
 
+# Step 3: Analyze results in Jupyter notebook
+jupyter notebook chat_analysis_notebook.ipynb
+
 # Interactive analysis setup (if running the setup module directly)
 python chat_analysis_setup.py
 ```
@@ -126,6 +129,10 @@ Key libraries used:
 - `normalize_chats.py`: Converts raw AI chat JSON exports to standardized CSV format
 - `chat_analysis_setup.py`: Main ChatAnalyzer class with all NLP processing logic
 - `process_runner.py`: CLI script to run the full analysis pipeline
+
+**Analysis & Visualization:**
+- `chat_analysis_notebook.ipynb`: Comprehensive Jupyter notebook for data analysis and visualization
+- Interactive dashboard with temporal analysis, sentiment tracking, conversation patterns
 
 **Data Files:**
 - `chatgpt_conversations.json`: Raw ChatGPT export data (90.7MB)

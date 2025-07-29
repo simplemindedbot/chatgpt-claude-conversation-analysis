@@ -55,7 +55,10 @@ def main():
     print(f"Generated Embeddings: {stats['embedded_messages']:,}")
     
     print(f"\n✅ Database created: chat_analysis.db")
-    print("🎯 Ready for analysis! Try running the analysis notebook next.")
+    print("🎯 Ready for analysis! You can now:")
+    print("   • Open the Jupyter notebook: jupyter notebook chat_analysis_notebook.ipynb")
+    print("   • Query the SQLite database directly with SQL")
+    print("   • Create custom visualizations using the processed data")
 
 if __name__ == "__main__":
     main()
