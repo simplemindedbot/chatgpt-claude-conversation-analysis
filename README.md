@@ -40,7 +40,7 @@ python -m spacy download en_core_web_sm
 4. Extract the `conversations.json` file and rename to `chatgpt_conversations.json`
 
 #### Claude Data Export  
-1. Go to [Claude Privacy Controls](https://claude.ai/settings/privacy)
+1. Go to [Claude Privacy Controls](https://claude.ai/settings/data-privacy-controls)
 2. Click "Export data" 
 3. Download the export file
 4. Extract the `conversations.json` file and rename to `claude_conversations.json`
