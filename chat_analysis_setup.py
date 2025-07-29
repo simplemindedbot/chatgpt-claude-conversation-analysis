@@ -14,6 +14,16 @@ import warnings
 # Suppress specific transformers deprecation warning that's not actionable
 warnings.filterwarnings("ignore", message=".*encoder_attention_mask.*deprecated.*", category=FutureWarning)
 
+# Compile regex patterns once for performance
+CODE_PATTERN = re.compile(r'```|`[^`]+`|def |class |import |function\(')
+URL_PATTERN = re.compile(r'https?://|www\.')
+QUESTION_PATTERNS = [
+    re.compile(r'\?'),
+    re.compile(r'^(what|how|why|when|where|who|which|can|could|would|should|is|are|do|does)', re.IGNORECASE),
+    re.compile(r'help me', re.IGNORECASE),
+    re.compile(r'explain', re.IGNORECASE)
+]
+
 # Core NLP imports
 import spacy
 from sentence_transformers import SentenceTransformer
@@ -144,8 +154,8 @@ class ChatAnalyzer:
             
         return df
 
-    def extract_features(self, batch_size=100):
-        """Extract features from content"""
+    def extract_features(self, batch_size=500):
+        """Extract features from content using batch processing for speed"""
         print("Extracting message features - detecting code blocks, sentiment analysis, entity recognition...")
 
         cursor = self.conn.cursor()
@@ -168,26 +178,17 @@ class ChatAnalyzer:
         """)
         all_rows = cursor.fetchall()
 
-        batch = []
         processed = 0
 
         with tqdm(total=total_messages, desc="Processing messages", unit="msg") as pbar:
-            for row in all_rows:
-                message_id, content = row
-                features = self._analyze_content(content)
-                features['message_id'] = message_id
-                batch.append(features)
-
-                if len(batch) >= batch_size:
-                    self._save_features_batch(batch)
-                    processed += len(batch)
-                    pbar.update(len(batch))
-                    batch = []
-
-            if batch:
-                self._save_features_batch(batch)
-                processed += len(batch)
-                pbar.update(len(batch))
+            # Process in larger batches for efficiency
+            for i in range(0, len(all_rows), batch_size):
+                batch_rows = all_rows[i:i + batch_size]
+                batch_features = self._analyze_content_batch(batch_rows)
+                
+                self._save_features_batch_bulk(batch_features)
+                processed += len(batch_features)
+                pbar.update(len(batch_features))
 
         print(f"Feature extraction complete: {processed} messages analyzed for content patterns and sentiment")
 
@@ -282,6 +283,82 @@ class ChatAnalyzer:
             'content_type': 'empty'
         }
 
+    def _analyze_content_batch(self, batch_rows):
+        """Analyze a batch of messages using efficient batch processing"""
+        message_ids = [row[0] for row in batch_rows]
+        contents = [row[1] for row in batch_rows]
+        
+        # Pre-process and clean contents
+        clean_contents = []
+        basic_features = []
+        
+        for content in contents:
+            if not content or pd.isna(content):
+                clean_contents.append("")
+                basic_features.append({
+                    'has_code': False,
+                    'has_urls': False,
+                    'has_questions': False,
+                    'question_count': 0
+                })
+            else:
+                clean_content = self._clean_text(content)
+                clean_contents.append(clean_content)
+                
+                # Use compiled regex patterns for speed
+                has_code = bool(CODE_PATTERN.search(content))
+                has_urls = bool(URL_PATTERN.search(content))
+                
+                # Question detection
+                question_matches = [p for p in QUESTION_PATTERNS if p.search(content)]
+                has_questions = len(question_matches) > 0
+                question_count = content.count('?')
+                
+                basic_features.append({
+                    'has_code': has_code,
+                    'has_urls': has_urls,
+                    'has_questions': has_questions,
+                    'question_count': question_count
+                })
+        
+        # Batch process with spaCy - much faster than individual calls
+        docs = list(self.nlp.pipe(clean_contents, batch_size=50, disable=['parser']))
+        
+        # Batch sentiment analysis
+        sentiment_scores = []
+        for clean_content in clean_contents:
+            if clean_content:
+                sentiment = self.sentiment_analyzer.polarity_scores(clean_content)
+                sentiment_scores.append(sentiment['compound'])
+            else:
+                sentiment_scores.append(0.0)
+        
+        # Combine all features
+        batch_features = []
+        for i, (message_id, doc, basic_feat, sentiment_score) in enumerate(zip(message_ids, docs, basic_features, sentiment_scores)):
+            # Extract entities and technical terms from spaCy doc
+            entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ['PERSON', 'ORG', 'PRODUCT']]
+            technical_terms = [token.text for token in doc if token.pos_ == 'NOUN' and len(token.text) > 3 and token.is_alpha][:20]
+            
+            # Content type classification
+            content_type = self._classify_content_type(contents[i], basic_feat['has_questions'], basic_feat['has_code'])
+            
+            batch_features.append({
+                'message_id': message_id,
+                'clean_content': clean_contents[i],
+                'has_code': basic_feat['has_code'],
+                'has_urls': basic_feat['has_urls'],
+                'has_questions': basic_feat['has_questions'],
+                'question_count': basic_feat['question_count'],
+                'named_entities': json.dumps(entities),
+                'technical_terms': json.dumps(technical_terms),
+                'sentiment_score': sentiment_score,
+                'language': 'en',
+                'content_type': content_type
+            })
+        
+        return batch_features
+
     def _save_features_batch(self, batch):
         """Save batch of features to database"""
         df = pd.DataFrame(batch)
@@ -301,6 +378,35 @@ class ChatAnalyzer:
                 row['named_entities'], row['technical_terms'], row['sentiment_score'],
                 row['language'], row['content_type']
             ))
+        self.conn.commit()
+
+    def _save_features_batch_bulk(self, batch_features):
+        """Save batch of features to database using bulk operations for speed"""
+        if not batch_features:
+            return
+            
+        # Use executemany for bulk insert - much faster than individual inserts
+        cursor = self.conn.cursor()
+        
+        # Prepare data tuples for bulk insert
+        data_tuples = []
+        for features in batch_features:
+            data_tuples.append((
+                features['message_id'], features['clean_content'], features['has_code'],
+                features['has_urls'], features['has_questions'], features['question_count'],
+                features['named_entities'], features['technical_terms'], features['sentiment_score'],
+                features['language'], features['content_type']
+            ))
+        
+        # Bulk insert with executemany
+        cursor.executemany("""
+            INSERT OR REPLACE INTO message_features (
+                message_id, clean_content, has_code, has_urls, has_questions,
+                question_count, named_entities, technical_terms, sentiment_score,
+                language, content_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, data_tuples)
+        
         self.conn.commit()
 
     def generate_embeddings(self, batch_size=50):
