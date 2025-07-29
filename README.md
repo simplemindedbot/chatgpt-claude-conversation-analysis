@@ -4,7 +4,7 @@ A comprehensive Python-based analysis pipeline for processing and analyzing AI c
 
 ## ✨ Features
 
-- **Multi-platform Support**: Process conversations from ChatGPT, Claude, and other AI platforms
+- **Multi-platform Support**: Process conversations from ChatGPT and Claude (expandable to more) platforms
 - **Advanced NLP Processing**: Content classification, sentiment analysis, entity recognition
 - **High-performance Processing**: Multiprocessing support with configurable CPU usage
 - **Interactive Analysis**: Comprehensive Jupyter notebook with rich visualizations
