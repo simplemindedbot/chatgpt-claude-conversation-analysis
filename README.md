@@ -1,6 +1,6 @@
 # 🤖 AI Chat Analysis Pipeline
 
-A comprehensive Python-based analysis pipeline for processing and analyzing AI chat conversation data from multiple sources. Extract insights from your ChatGPT, Claude, and other AI conversations with advanced NLP processing, sentiment analysis, and interactive visualizations.
+A comprehensive Python-based analysis pipeline for processing and analyzing AI chat conversation data from multiple sources. Extract insights from your ChatGPT and Claude conversations with advanced NLP processing, sentiment analysis, and interactive visualizations.
 
 ## ✨ Features
 
