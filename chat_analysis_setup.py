@@ -128,10 +128,20 @@ class ChatAnalyzer:
         # Clean timestamp - handle different formats
         df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', errors='coerce', utc=True)
 
-        # Insert into database
-        df.to_sql('raw_conversations', self.conn, if_exists='replace', index=False)
-
-        print(f"Loaded {len(df)} messages from {df['conversation_id'].nunique()} conversations")
+        # Insert into database - check if data already exists to avoid losing processed results
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM raw_conversations")
+        existing_count = cursor.fetchone()[0]
+        
+        if existing_count == 0:
+            df.to_sql('raw_conversations', self.conn, if_exists='replace', index=False)
+            print(f"Loaded {len(df)} messages from {df['conversation_id'].nunique()} conversations")
+        else:
+            print(f"Database already contains {existing_count} messages, skipping CSV import to preserve processed results")
+            # Get existing data for return value
+            existing_df = pd.read_sql_query("SELECT DISTINCT conversation_id FROM raw_conversations", self.conn)
+            print(f"Using existing {existing_count} messages from {len(existing_df)} conversations")
+            
         return df
 
     def extract_features(self, batch_size=100):
@@ -381,9 +391,9 @@ class ChatAnalyzer:
 
         df = pd.read_sql_query(query, self.conn)
 
-        # Calculate duration
-        df['start_time'] = pd.to_datetime(df['start_time'])
-        df['end_time'] = pd.to_datetime(df['end_time'])
+        # Calculate duration - handle mixed timestamp formats
+        df['start_time'] = pd.to_datetime(df['start_time'], format='mixed', errors='coerce', utc=True)
+        df['end_time'] = pd.to_datetime(df['end_time'], format='mixed', errors='coerce', utc=True)
         df['duration_minutes'] = (df['end_time'] - df['start_time']).dt.total_seconds() / 60
 
         # Classify conversation types
