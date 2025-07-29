@@ -184,11 +184,10 @@ class ChatAnalyzer:
             # Process in larger batches for efficiency
             for i in range(0, len(all_rows), batch_size):
                 batch_rows = all_rows[i:i + batch_size]
-                batch_features = self._analyze_content_batch(batch_rows)
+                batch_features = self._analyze_content_batch(batch_rows, pbar)
                 
                 self._save_features_batch_bulk(batch_features)
                 processed += len(batch_features)
-                pbar.update(len(batch_features))
 
         print(f"Feature extraction complete: {processed} messages analyzed for content patterns and sentiment")
 
@@ -283,7 +282,7 @@ class ChatAnalyzer:
             'content_type': 'empty'
         }
 
-    def _analyze_content_batch(self, batch_rows):
+    def _analyze_content_batch(self, batch_rows, pbar=None):
         """Analyze a batch of messages using efficient batch processing"""
         message_ids = [row[0] for row in batch_rows]
         contents = [row[1] for row in batch_rows]
@@ -292,7 +291,7 @@ class ChatAnalyzer:
         clean_contents = []
         basic_features = []
         
-        for content in contents:
+        for i, content in enumerate(contents):
             if not content or pd.isna(content):
                 clean_contents.append("")
                 basic_features.append({
@@ -320,13 +319,22 @@ class ChatAnalyzer:
                     'has_questions': has_questions,
                     'question_count': question_count
                 })
+            
+            # Update progress more frequently - every 10 messages
+            if pbar and (i + 1) % 10 == 0:
+                pbar.update(10)
+        
+        # Update progress for any remaining messages
+        remaining = len(contents) % 10
+        if pbar and remaining > 0:
+            pbar.update(remaining)
         
         # Batch process with spaCy - much faster than individual calls
         docs = list(self.nlp.pipe(clean_contents, batch_size=50, disable=['parser']))
         
         # Batch sentiment analysis
         sentiment_scores = []
-        for clean_content in clean_contents:
+        for i, clean_content in enumerate(clean_contents):
             if clean_content:
                 sentiment = self.sentiment_analyzer.polarity_scores(clean_content)
                 sentiment_scores.append(sentiment['compound'])
