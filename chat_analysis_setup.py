@@ -27,7 +27,7 @@ class ChatAnalyzer:
         self.setup_database()
 
         # Initialize NLP tools
-        print("Loading NLP models...")
+        print("Loading NLP models - spaCy for entity recognition, SentenceTransformer for embeddings...")
         self.nlp = spacy.load("en_core_web_sm")  # Install with: python -m spacy download en_core_web_sm
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -103,11 +103,11 @@ class ChatAnalyzer:
         ''')
 
         self.conn.commit()
-        print("Database schema created successfully")
+        print("Database schema created successfully - 4 tables for conversations, features, embeddings, analysis")
 
     def ingest_csv(self, csv_path):
         """Load your CSV data into the database"""
-        print(f"Loading data from {csv_path}...")
+        print(f"Reading CSV file and parsing timestamps from {csv_path}...")
 
         df = pd.read_csv(csv_path)
 
@@ -126,7 +126,7 @@ class ChatAnalyzer:
         df = df.rename(columns=column_mapping)
 
         # Clean timestamp - handle different formats
-        df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', errors='coerce')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', errors='coerce', utc=True)
 
         # Insert into database
         df.to_sql('raw_conversations', self.conn, if_exists='replace', index=False)
@@ -136,13 +136,26 @@ class ChatAnalyzer:
 
     def extract_features(self, batch_size=100):
         """Extract features from content"""
-        print("Extracting message features...")
+        print("Extracting message features - detecting code blocks, sentiment analysis, entity recognition...")
 
         cursor = self.conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM raw_conversations")
+        # Only process messages that haven't been processed yet
+        cursor.execute("""
+            SELECT COUNT(*) FROM raw_conversations r
+            LEFT JOIN message_features mf ON r.message_id = mf.message_id
+            WHERE mf.message_id IS NULL
+        """)
         total_messages = cursor.fetchone()[0]
         
-        cursor.execute("SELECT message_id, content FROM raw_conversations")
+        if total_messages == 0:
+            print("All messages already processed - features previously extracted, skipping to next step")
+            return
+        
+        cursor.execute("""
+            SELECT r.message_id, r.content FROM raw_conversations r
+            LEFT JOIN message_features mf ON r.message_id = mf.message_id
+            WHERE mf.message_id IS NULL
+        """)
         all_rows = cursor.fetchall()
 
         batch = []
@@ -166,7 +179,7 @@ class ChatAnalyzer:
                 processed += len(batch)
                 pbar.update(len(batch))
 
-        print(f"Feature extraction complete: {processed} messages processed")
+        print(f"Feature extraction complete: {processed} messages analyzed for content patterns and sentiment")
 
     def _analyze_content(self, content):
         """Analyze individual message content"""
@@ -262,11 +275,27 @@ class ChatAnalyzer:
     def _save_features_batch(self, batch):
         """Save batch of features to database"""
         df = pd.DataFrame(batch)
-        df.to_sql('message_features', self.conn, if_exists='append', index=False)
+        
+        # Handle potential duplicates by using INSERT OR REPLACE
+        cursor = self.conn.cursor()
+        for _, row in df.iterrows():
+            cursor.execute("""
+                INSERT OR REPLACE INTO message_features (
+                    message_id, clean_content, has_code, has_urls, has_questions,
+                    question_count, named_entities, technical_terms, sentiment_score,
+                    language, content_type
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                row['message_id'], row['clean_content'], row['has_code'],
+                row['has_urls'], row['has_questions'], row['question_count'],
+                row['named_entities'], row['technical_terms'], row['sentiment_score'],
+                row['language'], row['content_type']
+            ))
+        self.conn.commit()
 
     def generate_embeddings(self, batch_size=50):
         """Generate embeddings for all clean content"""
-        print("Generating embeddings...")
+        print("Generating embeddings - converting text to numerical vectors for similarity analysis...")
 
         cursor = self.conn.cursor()
         
@@ -306,7 +335,7 @@ class ChatAnalyzer:
                 processed += len(batch)
                 pbar.update(len(batch))
 
-        print(f"Embedding generation complete: {processed} messages processed")
+        print(f"Embedding generation complete: {processed} messages converted to 384-dimensional vectors")
 
     def _process_embedding_batch(self, batch):
         """Process a batch of embeddings"""
@@ -331,7 +360,7 @@ class ChatAnalyzer:
 
     def analyze_conversations(self):
         """Generate conversation-level features"""
-        print("Analyzing conversation patterns...")
+        print("Analyzing conversation patterns - calculating duration, complexity, topic classification...")
 
         query = """
         SELECT
@@ -378,7 +407,7 @@ class ChatAnalyzer:
 
         conversation_features.to_sql('conversation_features', self.conn, if_exists='replace', index=False)
 
-        print(f"Analyzed {len(df)} conversations")
+        print(f"Conversation analysis complete: {len(df)} conversations classified and scored")
 
     def _classify_conversation(self, row):
         """Classify conversation type based on patterns"""

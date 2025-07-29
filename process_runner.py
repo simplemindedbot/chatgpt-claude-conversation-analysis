@@ -24,23 +24,23 @@ def main():
     print("=" * 50)
     
     # Initialize analyzer
-    print("📊 Initializing analyzer...")
+    print("📊 Initializing analyzer - setting up database schema and loading NLP models...")
     analyzer = ChatAnalyzer()
     
     # Step 1: Ingest CSV
-    print("\n📥 Loading CSV data...")
+    print("\n📥 Loading CSV data - importing conversation messages into SQLite database...")
     df = analyzer.ingest_csv(csv_path)
     
     # Step 2: Extract features
-    print("\n🔍 Extracting message features...")
+    print("\n🔍 Extracting message features - analyzing content type, sentiment, entities, and technical terms...")
     analyzer.extract_features()
     
     # Step 3: Generate embeddings
-    print("\n🧠 Generating embeddings...")
+    print("\n🧠 Generating embeddings - creating vector representations for semantic similarity analysis...")
     analyzer.generate_embeddings()
     
     # Step 4: Analyze conversations
-    print("\n💬 Analyzing conversation patterns...")
+    print("\n💬 Analyzing conversation patterns - calculating metrics, duration, complexity scores...")
     analyzer.analyze_conversations()
     
     # Summary
