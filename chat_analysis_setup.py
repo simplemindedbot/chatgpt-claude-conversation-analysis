@@ -10,6 +10,9 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 import warnings
+import multiprocessing as mp
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Suppress specific transformers deprecation warning that's not actionable
 warnings.filterwarnings("ignore", message=".*encoder_attention_mask.*deprecated.*", category=FutureWarning)
@@ -29,6 +32,125 @@ import spacy
 from sentence_transformers import SentenceTransformer
 import nltk
 from nltk.sentiment import SentimentIntensityAnalyzer
+
+def _get_optimal_cores(fraction=0.75):
+    """Get optimal number of cores to use (fraction of available cores)"""
+    available_cores = mp.cpu_count()
+    # Reserve at least 1 core for system, use fraction of remaining
+    optimal_cores = max(1, int(available_cores * fraction))
+    return min(optimal_cores, available_cores - 1)
+
+def _process_batch_worker(batch_data):
+    """Worker function for multiprocessing - processes a batch of messages"""
+    import spacy
+    import nltk
+    from nltk.sentiment import SentimentIntensityAnalyzer
+    import pandas as pd
+    import json
+    import re
+    
+    # Load models in worker process
+    try:
+        nlp = spacy.load("en_core_web_sm")
+        sentiment_analyzer = SentimentIntensityAnalyzer()
+    except:
+        # If models fail to load, return empty results
+        return []
+    
+    batch_rows, batch_idx = batch_data
+    message_ids = [row[0] for row in batch_rows]
+    contents = [row[1] for row in batch_rows]
+    
+    # Pre-process and clean contents
+    clean_contents = []
+    basic_features = []
+    
+    for content in contents:
+        if not content or pd.isna(content):
+            clean_contents.append("")
+            basic_features.append({
+                'has_code': False,
+                'has_urls': False,
+                'has_questions': False,
+                'question_count': 0
+            })
+        else:
+            # Clean content
+            clean_content = re.sub(r'\s+', ' ', content)
+            clean_content = re.sub(r'```[\s\S]{500,}?```', '[LONG_CODE_BLOCK]', clean_content)
+            clean_content = clean_content.strip()
+            clean_contents.append(clean_content)
+            
+            # Use compiled regex patterns for speed
+            has_code = bool(CODE_PATTERN.search(content))
+            has_urls = bool(URL_PATTERN.search(content))
+            
+            # Question detection
+            question_matches = [p for p in QUESTION_PATTERNS if p.search(content)]
+            has_questions = len(question_matches) > 0
+            question_count = content.count('?')
+            
+            basic_features.append({
+                'has_code': has_code,
+                'has_urls': has_urls,
+                'has_questions': has_questions,
+                'question_count': question_count
+            })
+    
+    # Batch process with spaCy
+    docs = list(nlp.pipe(clean_contents, batch_size=50, disable=['parser']))
+    
+    # Batch sentiment analysis
+    sentiment_scores = []
+    for clean_content in clean_contents:
+        if clean_content:
+            sentiment = sentiment_analyzer.polarity_scores(clean_content)
+            sentiment_scores.append(sentiment['compound'])
+        else:
+            sentiment_scores.append(0.0)
+    
+    # Combine all features
+    batch_features = []
+    for i, (message_id, doc, basic_feat, sentiment_score) in enumerate(zip(message_ids, docs, basic_features, sentiment_scores)):
+        # Extract entities and technical terms from spaCy doc
+        entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ['PERSON', 'ORG', 'PRODUCT']]
+        technical_terms = [token.text for token in doc if token.pos_ == 'NOUN' and len(token.text) > 3 and token.is_alpha][:20]
+        
+        # Content type classification
+        content_type = _classify_content_type_standalone(contents[i], basic_feat['has_questions'], basic_feat['has_code'])
+        
+        batch_features.append({
+            'message_id': message_id,
+            'clean_content': clean_contents[i],
+            'has_code': basic_feat['has_code'],
+            'has_urls': basic_feat['has_urls'],
+            'has_questions': basic_feat['has_questions'],
+            'question_count': basic_feat['question_count'],
+            'named_entities': json.dumps(entities),
+            'technical_terms': json.dumps(technical_terms),
+            'sentiment_score': sentiment_score,
+            'language': 'en',
+            'content_type': content_type
+        })
+    
+    return batch_features, batch_idx
+
+def _classify_content_type_standalone(content, has_questions, has_code):
+    """Standalone content type classification for multiprocessing"""
+    content_lower = content.lower()
+    
+    if has_code:
+        return 'code'
+    elif has_questions:
+        return 'question'
+    elif any(word in content_lower for word in ['explain', 'understand', 'concept', 'definition']):
+        return 'explanation'
+    elif any(word in content_lower for word in ['brainstorm', 'idea', 'think', 'consider']):
+        return 'brainstorm'
+    elif any(word in content_lower for word in ['debug', 'error', 'problem', 'issue']):
+        return 'debug'
+    else:
+        return 'general'
 
 class ChatAnalyzer:
     def __init__(self, db_path="chat_analysis.db"):
@@ -154,8 +276,8 @@ class ChatAnalyzer:
             
         return df
 
-    def extract_features(self, batch_size=500):
-        """Extract features from content using batch processing for speed"""
+    def extract_features(self, batch_size=500, use_multiprocessing=True, core_fraction=0.75):
+        """Extract features from content using batch processing and multiprocessing for speed"""
         print("Extracting message features - detecting code blocks, sentiment analysis, entity recognition...")
 
         cursor = self.conn.cursor()
@@ -179,7 +301,59 @@ class ChatAnalyzer:
         all_rows = cursor.fetchall()
 
         processed = 0
+        
+        # Determine processing method
+        if use_multiprocessing and len(all_rows) > 100:  # Only use multiprocessing for larger datasets
+            processed = self._extract_features_parallel(all_rows, batch_size, core_fraction, total_messages)
+        else:
+            # Fallback to single-threaded processing for small datasets
+            processed = self._extract_features_sequential(all_rows, batch_size, total_messages)
 
+        print(f"Feature extraction complete: {processed} messages analyzed for content patterns and sentiment")
+    
+    def _extract_features_parallel(self, all_rows, batch_size, core_fraction, total_messages):
+        """Extract features using multiprocessing"""
+        # Determine optimal number of cores
+        num_cores = _get_optimal_cores(core_fraction)
+        print(f"Using {num_cores} CPU cores ({core_fraction*100:.0f}% of available) for parallel processing...")
+        
+        # Prepare batches for multiprocessing
+        batches = []
+        for i in range(0, len(all_rows), batch_size):
+            batch_rows = all_rows[i:i + batch_size]
+            batches.append((batch_rows, i // batch_size))
+        
+        processed = 0
+        all_features = []
+        
+        # Use ProcessPoolExecutor for better progress tracking
+        with ProcessPoolExecutor(max_workers=num_cores) as executor:
+            with tqdm(total=total_messages, desc="Processing messages", unit="msg") as pbar:
+                # Submit all batches
+                future_to_batch = {executor.submit(_process_batch_worker, batch): batch for batch in batches}
+                
+                # Process completed batches as they finish
+                for future in as_completed(future_to_batch):
+                    try:
+                        batch_features, batch_idx = future.result()
+                        if batch_features:  # Handle case where worker returns empty results
+                            all_features.extend(batch_features)
+                            processed += len(batch_features)
+                            pbar.update(len(batch_features))
+                    except Exception as e:
+                        print(f"Error processing batch: {e}")
+                        continue
+        
+        # Save all features in bulk
+        if all_features:
+            self._save_features_batch_bulk(all_features)
+            
+        return processed
+    
+    def _extract_features_sequential(self, all_rows, batch_size, total_messages):
+        """Extract features using single-threaded processing (fallback)"""
+        processed = 0
+        
         with tqdm(total=total_messages, desc="Processing messages", unit="msg") as pbar:
             # Process in larger batches for efficiency
             for i in range(0, len(all_rows), batch_size):
@@ -188,8 +362,8 @@ class ChatAnalyzer:
                 
                 self._save_features_batch_bulk(batch_features)
                 processed += len(batch_features)
-
-        print(f"Feature extraction complete: {processed} messages analyzed for content patterns and sentiment")
+                
+        return processed
 
     def _analyze_content(self, content):
         """Analyze individual message content"""
