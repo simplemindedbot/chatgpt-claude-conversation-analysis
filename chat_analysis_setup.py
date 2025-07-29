@@ -66,7 +66,8 @@ def _process_batch_worker(batch_data):
     basic_features = []
     
     for content in contents:
-        if not content or pd.isna(content):
+        # More robust null checking for multiprocessing
+        if content is None or content == '' or (hasattr(pd, 'isna') and pd.isna(content)):
             clean_contents.append("")
             basic_features.append({
                 'has_code': False,
@@ -116,8 +117,11 @@ def _process_batch_worker(batch_data):
         entities = [(ent.text, ent.label_) for ent in doc.ents if ent.label_ in ['PERSON', 'ORG', 'PRODUCT']]
         technical_terms = [token.text for token in doc if token.pos_ == 'NOUN' and len(token.text) > 3 and token.is_alpha][:20]
         
-        # Content type classification
-        content_type = _classify_content_type_standalone(contents[i], basic_feat['has_questions'], basic_feat['has_code'])
+        # Content type classification with error handling
+        try:
+            content_type = _classify_content_type_standalone(contents[i], basic_feat['has_questions'], basic_feat['has_code'])
+        except Exception:
+            content_type = 'general'  # Fallback for any classification errors
         
         batch_features.append({
             'message_id': message_id,
@@ -137,6 +141,9 @@ def _process_batch_worker(batch_data):
 
 def _classify_content_type_standalone(content, has_questions, has_code):
     """Standalone content type classification for multiprocessing"""
+    if not content:
+        return 'empty'
+        
     content_lower = content.lower()
     
     if has_code:
