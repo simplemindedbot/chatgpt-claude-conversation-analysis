@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Setup
 
-This is a Python-based chat analysis pipeline for processing AI chat conversation data. The main setup requires:
+This is a Python-based chat analysis pipeline for processing AI chat conversation data from multiple sources. The main setup requires:
 
 ```bash
 # Install dependencies
@@ -22,7 +22,10 @@ python -m spacy download en_core_web_sm
 # Activate virtual environment (required)
 source chat_analysis_env/bin/activate
 
-# Process a CSV file through the full pipeline
+# Step 1: Normalize raw JSON exports into CSV format
+python normalize_chats.py
+
+# Step 2: Process normalized CSV through the full analysis pipeline
 python process_runner.py <path_to_csv>
 python process_runner.py sample_chat_history.csv
 python process_runner.py combined_ai_chat_history.csv
@@ -33,19 +36,25 @@ python chat_analysis_setup.py
 
 ## Architecture Overview
 
-The project consists of a data processing pipeline with these main components:
+The project consists of a two-stage data processing pipeline:
 
-### Core Components
+### Stage 1: Data Normalization
+**normalize_chats.py**: Converts raw AI chat exports into standardized CSV format
+- Handles ChatGPT conversation exports (complex nested JSON structure)
+- Handles Claude conversation exports (simpler JSON structure)
+- Normalizes different message content types and formats
+- Produces unified CSV with standardized columns
 
-1. **ChatAnalyzer** (`chat_analysis_setup.py`): Main analysis class that handles:
-   - Database setup (SQLite with 4 main tables)
-   - CSV ingestion with column mapping
-   - NLP feature extraction (spaCy, NLTK, sentence-transformers)
-   - Embedding generation using SentenceTransformer
-   - Conversation-level analysis
+### Stage 2: NLP Analysis
+**ChatAnalyzer** (`chat_analysis_setup.py`): Main analysis class that handles:
+- Database setup (SQLite with 4 main tables)
+- CSV ingestion with column mapping
+- NLP feature extraction (spaCy, NLTK, sentence-transformers)
+- Embedding generation using SentenceTransformer
+- Conversation-level analysis
 
-2. **process_runner.py**: CLI script that orchestrates the full pipeline:
-   - CSV ingestion → Feature extraction → Embedding generation → Conversation analysis
+**process_runner.py**: CLI script that orchestrates the full pipeline:
+- CSV ingestion → Feature extraction → Embedding generation → Conversation analysis
 
 ### Database Schema
 
@@ -65,13 +74,42 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 - **Progress Tracking**: Real-time progress bars for all processing stages using tqdm
 - **Error Handling**: Robust timestamp parsing and warning suppression for clean output
 
+## Data Sources & Normalization
+
+### Supported AI Platforms
+
+**ChatGPT Export Format:**
+- Complex nested JSON with conversation `mapping` structure
+- Messages stored as node objects with parent-child relationships
+- Multiple content types: text, multimodal_text, code, thoughts, user_editable_context
+- Timestamps in Unix format requiring conversion
+- Role mapping: user → User, assistant → Assistant
+
+**Claude Export Format:**
+- Simpler JSON array of conversation objects
+- Direct `chat_messages` array within each conversation
+- Content stored as array of content blocks with type indicators
+- ISO 8601 timestamps (no conversion needed)
+- Role mapping: human → User, assistant → Assistant
+
+### Content Type Handling
+
+The normalization script handles various message content types:
+- **Text messages**: Standard conversational text
+- **Code blocks**: Programming code and technical content
+- **Multimodal content**: Text with images (text portions extracted)
+- **System instructions**: User profiles and context (prefixed for identification)
+- **Model thoughts**: Internal reasoning (when available, prefixed as MODEL_THOUGHTS)
+- **Tool usage**: API calls and responses (currently filtered out)
+
 ### Data Flow
 
-1. CSV input with columns: Source AI, Conversation ID, Message ID, Timestamp, Role, Content, Word Count
-2. Database ingestion with schema mapping
-3. Batch processing for NLP feature extraction
-4. Embedding generation for semantic analysis
-5. Conversation-level aggregation and classification
+1. **Raw JSON exports** → `normalize_chats.py` → **Standardized CSV**
+2. **CSV input** with columns: Source AI, Conversation ID, Message ID, Timestamp, Role, Content, Word Count
+3. Database ingestion with schema mapping
+4. Batch processing for NLP feature extraction
+5. Embedding generation for semantic analysis
+6. Conversation-level aggregation and classification
 
 ### Dependencies
 
@@ -84,9 +122,18 @@ Key libraries used:
 
 ### Project Files
 
-- `chat_analysis_setup.py`: Main ChatAnalyzer class with all processing logic
-- `process_runner.py`: CLI script to run the full pipeline
+**Core Processing:**
+- `normalize_chats.py`: Converts raw AI chat JSON exports to standardized CSV format
+- `chat_analysis_setup.py`: Main ChatAnalyzer class with all NLP processing logic
+- `process_runner.py`: CLI script to run the full analysis pipeline
+
+**Data Files:**
+- `chatgpt_conversations.json`: Raw ChatGPT export data (90.7MB)
+- `claude_conversations.json`: Raw Claude export data (19.7MB)
+- `combined_ai_chat_history.csv`: Normalized CSV output from both sources
 - `sample_chat_history.csv`: Sample test data for development
+
+**Configuration:**
 - `requirements.txt`: Python dependencies
 - `chat_analysis_env/`: Virtual environment directory
 - `.gitignore`: Git ignore rules for generated files and dependencies
@@ -94,6 +141,9 @@ Key libraries used:
 ### Notes
 
 - The virtual environment (`chat_analysis_env/`) must be activated before running scripts
+- **Two-stage process**: First run `normalize_chats.py` to convert JSON exports to CSV, then run `process_runner.py` for analysis
+- Raw JSON files (90+ MB) are included in repository but excluded from analysis by .gitignore
 - Generated database file (`chat_analysis.db`) is excluded from version control
 - Progress bars provide real-time feedback during processing
 - Deprecation warnings from transformers library are suppressed for clean output
+- Supports chronological sorting across multiple AI platforms in combined analysis

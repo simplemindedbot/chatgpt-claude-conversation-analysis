@@ -51,6 +51,11 @@ Thumbs.db
 # Jupyter
 .ipynb_checkpoints/
 
-# Data files (exclude large CSV files by default)
+# Data files (exclude large files and personal data)
 *.csv
 !sample_chat_history.csv
+
+# Source JSON files (large files with personal conversation data)
+chatgpt_conversations.json
+claude_conversations.json
+*_conversations.json
