@@ -150,6 +150,13 @@ def main():
     print("\n📥 Loading CSV data - importing conversation messages into SQLite database...")
     analyzer.ingest_csv(str(csv_path))
 
+    # Normalize timestamps in DB to canonical ISO8601 Z
+    print("\n🛠️ Normalizing timestamps in database to ISO 8601 UTC (Z)...")
+    try:
+        analyzer.normalize_db_timestamps()
+    except Exception as e:
+        logger.warning(f"Timestamp normalization encountered an issue: {e}")
+
     # Step 2: Extract features
     print("\n🔍 Extracting message features - analyzing content type, sentiment, entities, and technical terms...")
     analyzer.extract_features(batch_size=args.batch_size, use_multiprocessing=args.use_multiprocessing, core_fraction=args.core_fraction)

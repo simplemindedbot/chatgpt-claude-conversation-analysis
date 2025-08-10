@@ -63,6 +63,36 @@ python process_runner.py combined_ai_chat_history.csv
 jupyter notebook chat_analysis_notebook.ipynb
 ```
 
+#### Selecting the right Jupyter kernel (virtual environment)
+
+To ensure the notebook has access to all dependencies (spaCy model, NLTK VADER, etc.), run it using the project's virtual environment kernel.
+
+- Register the venv as a Jupyter kernel:
+
+```bash
+# From the project root, with the venv activated
+source chat_analysis_env/bin/activate  # Windows: chat_analysis_env\Scripts\activate
+python -m ipykernel install --user --name chat_analysis_env --display-name "Python (chat_analysis_env)"
+```
+
+- In Jupyter, choose Kernel → Change kernel → "Python (chat_analysis_env)".
+
+- Verify inside the notebook (first cell prints this automatically), or run:
+
+```python
+import sys
+print(sys.executable)
+print("in_venv:", (getattr(sys, 'base_prefix', sys.prefix) != sys.prefix) or hasattr(sys, 'real_prefix'))
+```
+
+If the kernel is not using the venv or resources are missing, install within the active kernel:
+
+```bash
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+python -c "import nltk; nltk.download('vader_lexicon')"
+```
+
 ## 📊 Analysis Pipeline
 
 ### Stage 1: Data Normalization
@@ -236,7 +266,7 @@ python -c "import nltk; nltk.download('vader_lexicon')"
 
 **"Memory errors"**: Reduce batch size for large datasets
 
-```python
+```bash
 python process_runner.py your_file.csv --batch-size 100
 ```
 
@@ -257,4 +287,31 @@ python process_runner.py your_file.csv --batch-size 100
 
 ---
 
-### Built with ❤️ for AI conversation analysis
+## 🧩 Create GitHub Issues from Docs
+
+You can auto-create GitHub issues from the project’s Markdown planning docs (development_plan.md and data-mining-recommendations.md).
+
+Usage:
+
+```bash
+# Preview (no network calls)
+python github_issue_creator.py --repo <owner>/<repo> --dry-run
+
+# Create issues (requires a GitHub token in env)
+export GITHUB_TOKEN=ghp_your_token
+python github_issue_creator.py --repo <owner>/<repo>
+
+# Assign and create milestones per Phase
+python github_issue_creator.py --repo <owner>/<repo> --assignee <your-gh-username> --milestones-per-phase
+```
+
+Notes:
+- Idempotent by title: existing issue titles are skipped unless --force is used.
+- Labels are created if missing (e.g., "Phase 2", "Priority 1", "Docs", "Analysis").
+- Tasks marked complete (✓) in development_plan.md are skipped.
+
+See ISSUE_CREATOR_GUIDE.md for authoring and formatting examples.
+
+---
+
+ ### Built with ❤️ for AI conversation analysis

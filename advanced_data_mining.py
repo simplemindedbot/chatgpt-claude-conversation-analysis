@@ -88,7 +88,7 @@ class AdvancedChatMiner:
         conv_df = data['conversation_features'].copy()
         
         # Convert timestamps
-        raw_df['timestamp'] = pd.to_datetime(raw_df['timestamp'])
+        raw_df['timestamp'] = pd.to_datetime(raw_df['timestamp'], utc=True, errors='coerce')
         raw_df['date'] = raw_df['timestamp'].dt.date
         raw_df['month'] = raw_df['timestamp'].dt.to_period('M')
         raw_df['hour'] = raw_df['timestamp'].dt.hour
@@ -195,7 +195,7 @@ class AdvancedChatMiner:
             
             # Topic evolution over time
             content_df['topic'] = topics
-            content_df['timestamp'] = pd.to_datetime(content_df['timestamp'])
+            content_df['timestamp'] = pd.to_datetime(content_df['timestamp'], utc=True, errors='coerce')
             topic_timeline = topic_model.topics_over_time(documents, content_df['timestamp'], nr_bins=12)
             results['topic_evolution'] = topic_timeline.to_dict('records') if not topic_timeline.empty else []
             
@@ -394,7 +394,7 @@ class AdvancedChatMiner:
         
         # Conversation initiation analysis
         conv_starters = raw_df.groupby('conversation_id').first()
-        conv_starters['timestamp'] = pd.to_datetime(conv_starters['timestamp'])
+        conv_starters['timestamp'] = pd.to_datetime(conv_starters['timestamp'], utc=True, errors='coerce')
         conv_starters['hour'] = conv_starters['timestamp'].dt.hour
         conv_starters['day_of_week'] = conv_starters['timestamp'].dt.day_name()
         
@@ -420,7 +420,7 @@ class AdvancedChatMiner:
             'source_ai': 'first',
             'message_id': 'count'  # message count per conversation
         }).reset_index()
-        conversations_by_user['timestamp'] = pd.to_datetime(conversations_by_user['timestamp'])
+        conversations_by_user['timestamp'] = pd.to_datetime(conversations_by_user['timestamp'], utc=True, errors='coerce')
         conversations_by_user = conversations_by_user.sort_values('timestamp')
         
         # Time gaps between conversations

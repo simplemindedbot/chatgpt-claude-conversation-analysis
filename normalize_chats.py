@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 import pandas as pd # Used for DataFrame and CSV export
 
@@ -99,7 +99,14 @@ def normalize_chatgpt_json(file_path: str) -> List[Dict[str, Any]]:
             content = _get_message_content(msg)
             
             timestamp_unix = msg.get('create_time')
-            timestamp_iso = datetime.fromtimestamp(timestamp_unix).isoformat() if timestamp_unix else None
+            if timestamp_unix is not None:
+                try:
+                    dt = datetime.fromtimestamp(timestamp_unix, tz=timezone.utc)
+                    timestamp_iso = dt.isoformat().replace('+00:00', 'Z')
+                except Exception:
+                    timestamp_iso = None
+            else:
+                timestamp_iso = None
 
             # Filter out empty content or non-conversational messages unless explicitly desired
             if content.strip(): # Only include messages that actually have text content
@@ -157,7 +164,18 @@ def normalize_claude_json(file_path: str) -> List[Dict[str, Any]]:
             if not full_message_content and msg.get('text'):
                 full_message_content = msg['text'].strip()
 
-            created_at_iso = msg.get('created_at') # Already ISO 8601 string
+            created_at_raw = msg.get('created_at')
+            if created_at_raw:
+                try:
+                    # Normalize to timezone-aware UTC and render as Z
+                    dt = datetime.fromisoformat(str(created_at_raw).replace('Z', '+00:00'))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    created_at_iso = dt.isoformat().replace('+00:00', 'Z')
+                except Exception:
+                    created_at_iso = str(created_at_raw)
+            else:
+                created_at_iso = None
 
             if full_message_content.strip(): # Only add messages with actual content
                 normalized_messages.append({

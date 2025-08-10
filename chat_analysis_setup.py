@@ -1,18 +1,17 @@
 # Chat History Mining Pipeline Setup
 # Run this first to establish the database and processing pipeline
 
-import pandas as pd
-import sqlite3
 import json
-import re
-from datetime import datetime
-import numpy as np
-from pathlib import Path
-from tqdm import tqdm
-import warnings
 import multiprocessing as mp
-import os
+import re
+import sqlite3
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
+
+import pandas as pd
+from tqdm import tqdm
+from time_utils import normalize_series_to_iso_utc, now_iso_utc_z, to_iso_utc_z
 
 # Suppress specific transformers deprecation warning that's not actionable
 warnings.filterwarnings("ignore", message=".*encoder_attention_mask.*deprecated.*", category=FutureWarning)
@@ -27,11 +26,8 @@ QUESTION_PATTERNS = [
     re.compile(r'explain', re.IGNORECASE)
 ]
 
-# Core NLP imports
-import spacy
-from sentence_transformers import SentenceTransformer
-import nltk
-from nltk.sentiment import SentimentIntensityAnalyzer
+# Core NLP imports are deferred to runtime to keep lightweight imports for tests
+# (spaCy, sentence-transformers, and NLTK are imported only when needed)
 
 def _get_optimal_cores(fraction=0.75):
     """Get optimal number of cores to use (fraction of available cores)"""
@@ -43,7 +39,6 @@ def _get_optimal_cores(fraction=0.75):
 def _process_batch_worker(batch_data):
     """Worker function for multiprocessing - processes a batch of messages"""
     import spacy
-    import nltk
     from nltk.sentiment import SentimentIntensityAnalyzer
     import pandas as pd
     import json
@@ -168,13 +163,19 @@ class ChatAnalyzer:
         # Initialize NLP tools (can be skipped in tests with load_models=False)
         if load_models:
             print("Loading NLP models - spaCy for entity recognition, SentenceTransformer for embeddings...")
+            # Defer heavy imports to runtime
+            import spacy
+            import nltk
+            from nltk.sentiment import SentimentIntensityAnalyzer
+
             self.nlp = spacy.load("en_core_web_sm")  # Install with: python -m spacy download en_core_web_sm
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            # Defer actual embedding model instantiation until generate_embeddings is called
+            self.embedding_model = None
 
             # Download NLTK data if needed
             try:
                 self.sentiment_analyzer = SentimentIntensityAnalyzer()
-            except:
+            except Exception:
                 nltk.download('vader_lexicon')
                 self.sentiment_analyzer = SentimentIntensityAnalyzer()
         else:
@@ -270,8 +271,9 @@ class ChatAnalyzer:
 
         df = df.rename(columns=column_mapping)
 
-        # Clean timestamp - handle different formats
+        # Clean timestamp - handle different formats and store as ISO 8601 UTC (Z)
         df['timestamp'] = pd.to_datetime(df['timestamp'], format='mixed', errors='coerce', utc=True)
+        df['timestamp'] = normalize_series_to_iso_utc(df['timestamp'])
 
         # Insert into database - check if data already exists to avoid losing processed results
         cursor = self.conn.cursor()
@@ -663,7 +665,7 @@ class ChatAnalyzer:
                 'message_id': msg_id,
                 'embedding_model': 'all-MiniLM-L6-v2',
                 'embedding_vector': embedding.tobytes(),
-                'created_at': datetime.now()
+                'created_at': now_iso_utc_z()
             })
 
         df = pd.DataFrame(embedding_data)
@@ -730,6 +732,38 @@ class ChatAnalyzer:
             return 'deep_dive'
         else:
             return 'quick_help'
+
+    def normalize_db_timestamps(self):
+        """Normalize timestamp fields in existing DB to ISO 8601 UTC (Z)."""
+        cursor = self.conn.cursor()
+        # raw_conversations.timestamp
+        cursor.execute("SELECT message_id, timestamp FROM raw_conversations")
+        rows = cursor.fetchall()
+        updates = []
+        for message_id, ts in rows:
+            iso = to_iso_utc_z(ts)
+            if iso is not None and iso != ts:
+                updates.append((iso, message_id))
+        if updates:
+            cursor.executemany("UPDATE raw_conversations SET timestamp = ? WHERE message_id = ?", updates)
+            self.conn.commit()
+            print(f"Normalized {len(updates)} raw_conversations timestamps to ISO 8601 UTC (Z)")
+        # embeddings.created_at
+        try:
+            cursor.execute("SELECT message_id, created_at FROM embeddings")
+            rows = cursor.fetchall()
+            updates = []
+            for message_id, ts in rows:
+                iso = to_iso_utc_z(ts)
+                if iso is not None and iso != ts:
+                    updates.append((iso, message_id))
+            if updates:
+                cursor.executemany("UPDATE embeddings SET created_at = ? WHERE message_id = ?", updates)
+                self.conn.commit()
+                print(f"Normalized {len(updates)} embeddings created_at timestamps to ISO 8601 UTC (Z)")
+        except sqlite3.OperationalError:
+            # table may not exist yet
+            pass
 
     def get_summary_stats(self):
         """Get overview of processed data"""
