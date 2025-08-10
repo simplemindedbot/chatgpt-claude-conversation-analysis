@@ -33,13 +33,26 @@ python process_runner.py combined_ai_chat_history.csv
 # Step 3: Analyze results in Jupyter notebook
 jupyter notebook chat_analysis_notebook.ipynb
 
+# Step 4: Advanced Data Mining (NEW - 2025-01-10)
+# Install advanced mining dependencies first:
+pip install -r requirements_advanced_mining.txt
+
+# Run comprehensive mining pipeline (implements data-mining-recommendations.md)
+python mining_integration.py
+
+# Run advanced data mining analysis
+python advanced_data_mining.py
+
+# Run semantic search tool with sqlite-vec vector search
+python semantic_search_tool.py
+
 # Interactive analysis setup (if running the setup module directly)
 python chat_analysis_setup.py
 ```
 
 ## Architecture Overview
 
-The project consists of a two-stage data processing pipeline:
+The project consists of a multi-stage data processing and mining pipeline:
 
 ### Stage 1: Data Normalization
 
@@ -64,6 +77,29 @@ The project consists of a two-stage data processing pipeline:
 
 - CSV ingestion → Feature extraction → Embedding generation → Conversation analysis
 
+### Stage 3: Advanced Data Mining (NEW - 2025-01-10)
+
+**advanced_data_mining.py**: Comprehensive mining using FOSS tools (BERTopic, NetworkX, sqlite-vec):
+
+- Temporal intelligence mining (activity patterns, learning curves)
+- Knowledge domain clustering with semantic embeddings
+- Conversation quality & effectiveness analysis
+- Content type intelligence and sentiment patterns
+- Behavioral pattern mining and retention analysis
+
+**semantic_search_tool.py**: Vector similarity search using sqlite-vec:
+
+- Fast semantic search across all conversations
+- Knowledge gap identification and analysis
+- Code pattern library extraction
+- Personal knowledge graph construction
+
+**mining_integration.py**: Orchestrates comprehensive mining pipeline:
+
+- Priority 1: Immediate value (knowledge graph, learning gaps, code patterns)
+- Priority 2: Advanced analytics (productivity timeline, expertise progression)
+- Priority 3: Predictive mining (success prediction, retention analysis)
+
 ### Database Schema
 
 The system creates a SQLite database (`chat_analysis.db`) with these tables:
@@ -72,6 +108,8 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 - `message_features`: Extracted NLP features (sentiment, entities, content type)
 - `conversation_features`: Aggregated conversation-level metrics
 - `embeddings`: Vector embeddings for semantic analysis
+- `vec_embeddings`: sqlite-vec virtual table for fast vector similarity search (NEW)
+- `vec_message_mapping`: Maps vector rowids to message IDs for sqlite-vec (NEW)
 
 ### Key Features
 
@@ -79,7 +117,10 @@ The system creates a SQLite database (`chat_analysis.db`) with these tables:
 - **Content Classification**: Categorizes messages as code/question/explanation/brainstorm/debug/general
 - **Sentiment Analysis**: Uses NLTK's VADER sentiment analyzer
 - **Semantic Embeddings**: Uses all-MiniLM-L6-v2 model for text embeddings
+- **Vector Search**: Fast similarity search using sqlite-vec extension (NEW)
+- **Topic Modeling**: Advanced clustering with BERTopic for knowledge discovery (NEW)
 - **Conversation Metrics**: Duration, complexity scores, message patterns
+- **Predictive Analytics**: Success prediction and retention analysis models (NEW)
 - **Progress Tracking**: Real-time progress bars for all processing stages using tqdm
 - **Error Handling**: Robust timestamp parsing and warning suppression for clean output
 
@@ -125,13 +166,21 @@ The normalization script handles various message content types:
 
 ### Dependencies
 
-Key libraries used:
-
+**Core dependencies** (`requirements.txt`):
 - **NLP**: spacy, nltk, sentence-transformers, transformers
 - **ML**: scikit-learn, umap-learn, hdbscan, bertopic
 - **Data**: pandas, numpy, sqlite3
 - **Visualization**: plotly, matplotlib, seaborn, networkx
 - **Development**: jupyter, streamlit, tqdm
+
+**Advanced mining dependencies** (`requirements_advanced_mining.txt` - NEW):
+- **Topic Modeling**: bertopic>=0.16.0, keybert>=0.8.0
+- **Vector Search**: sqlite-vec>=0.1.0 (replaces sqlite-vss)
+- **Semantic Framework**: txtai>=7.0.0, faiss-cpu>=1.7.4
+- **Data Exploration**: datasette>=0.64.0, pandas-profiling>=3.6.0
+- **Network Analysis**: networkx-viewer>=0.3.0, pyvis>=0.3.2
+- **Time Series**: statsmodels>=0.14.0, seasonal>=0.3.1
+- **Advanced ML**: catboost>=1.2.0, xgboost>=2.0.0, lightgbm>=4.1.0
 
 ### Project Files
 
@@ -140,6 +189,13 @@ Key libraries used:
 - `normalize_chats.py`: Converts raw AI chat JSON exports to standardized CSV format
 - `chat_analysis_setup.py`: Main ChatAnalyzer class with all NLP processing logic
 - `process_runner.py`: CLI script to run the full analysis pipeline
+
+**Advanced Data Mining (NEW - 2025-01-10):**
+
+- `advanced_data_mining.py`: Comprehensive mining using FOSS tools
+- `semantic_search_tool.py`: sqlite-vec powered semantic search engine
+- `mining_integration.py`: Complete mining pipeline orchestrator
+- `requirements_advanced_mining.txt`: Extended dependencies for mining tools
 
 **Analysis & Visualization:**
 
@@ -152,19 +208,52 @@ Key libraries used:
 - `claude_conversations.json`: Raw Claude export data (19.7MB)
 - `combined_ai_chat_history.csv`: Normalized CSV output from both sources
 - `sample_chat_history.csv`: Sample test data for development
+- `data-mining-recommendations.md`: Comprehensive mining strategy recommendations (NEW)
 
 **Configuration:**
 
 - `requirements.txt`: Python dependencies
+- `requirements_advanced_mining.txt`: Advanced mining dependencies (NEW)
 - `chat_analysis_env/`: Virtual environment directory
 - `.gitignore`: Git ignore rules for generated files and dependencies
 
 ### Notes
 
 - The virtual environment (`chat_analysis_env/`) must be activated before running scripts
-- **Two-stage process**: First run `normalize_chats.py` to convert JSON exports to CSV, then run `process_runner.py` for analysis
+- **Multi-stage process**: 
+  1. Run `normalize_chats.py` to convert JSON exports to CSV
+  2. Run `process_runner.py` for basic analysis and embedding generation
+  3. Run advanced mining tools for comprehensive insights (NEW)
 - Raw JSON files (90+ MB) are included in repository but excluded from analysis by .gitignore
 - Generated database file (`chat_analysis.db`) is excluded from version control
+- **sqlite-vec replaces sqlite-vss**: Updated to use the newer, actively maintained vector search extension
 - Progress bars provide real-time feedback during processing
 - Deprecation warnings from transformers library are suppressed for clean output
 - Supports chronological sorting across multiple AI platforms in combined analysis
+- **Advanced mining implements data-mining-recommendations.md**: Comprehensive FOSS-based mining pipeline for maximum insight extraction
+
+## Advanced Mining Capabilities (NEW - 2025-01-10)
+
+### Key Mining Strategies
+
+1. **Temporal Intelligence**: Activity patterns, seasonal variations, learning curves
+2. **Knowledge Domain Clustering**: Topic discovery, expertise progression, knowledge gaps
+3. **Conversation Quality Analysis**: Success prediction, AI performance comparison
+4. **Content Intelligence**: Sentiment-driven insights, code pattern library
+5. **Behavioral Mining**: Retention analysis, optimal interaction timing
+
+### Output Files Generated
+
+- `advanced_mining_report.md`: Technical mining analysis
+- `executive_mining_summary.md`: High-level insights and recommendations
+- `comprehensive_mining_results.json`: Detailed structured results
+- `semantic_search_analysis.json`: Vector search analysis results
+- `*.html`: Interactive visualizations and dashboards
+
+### Vector Search Features
+
+- Fast semantic search across all 15K+ messages
+- Knowledge gap identification and prioritization
+- Code pattern extraction and categorization
+- Personal knowledge graph construction
+- Cross-conversation topic relationships

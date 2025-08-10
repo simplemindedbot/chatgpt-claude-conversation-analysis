@@ -1,0 +1,63 @@
+# Advanced Data Mining Requirements
+# Additional tools for implementing data-mining-recommendations.md
+# Run: pip install -r requirements_advanced_mining.txt
+
+# Core requirements (install the main requirements.txt first)
+# pip install -r requirements.txt
+
+# Advanced Topic Modeling
+bertopic>=0.16.0
+keybert>=0.8.0
+ctfidf>=0.1.0
+
+# Vector Database and Semantic Search
+sqlite-vec>=0.1.0  # SQLite vector search extension (newer replacement for sqlite-vss)
+txtai>=7.0.0       # All-in-one semantic search framework
+faiss-cpu>=1.7.4   # Vector similarity search
+
+# Enhanced Data Exploration
+datasette>=0.64.0           # Interactive data exploration
+datasette-cluster-map>=0.17.0  # Clustering visualization
+datasette-vega>=0.6.0       # Charts and visualizations
+
+# Network Analysis (already in main requirements)
+# networkx>=3.1.0
+
+# Advanced Analytics
+hdbscan>=0.8.33            # Density-based clustering (already in main)
+umap-learn>=0.5.3          # Dimensionality reduction (already in main)
+prince>=0.13.0             # Principal component analysis
+
+# Time Series Analysis
+statsmodels>=0.14.0        # Statistical analysis
+seasonal>=0.3.1            # Seasonal decomposition
+pyts>=0.12.0              # Time series analysis
+
+# Advanced Visualization
+plotly-dash>=2.14.0        # Interactive dashboards  
+kaleido>=0.2.1            # Static image export for plotly
+altair>=5.0.0             # Declarative visualization
+
+# Knowledge Graph Tools
+rdflib>=7.0.0             # RDF graph processing
+networkx-viewer>=0.3.0    # Interactive network visualization
+pyvis>=0.3.2              # Network visualization
+
+# Natural Language Understanding
+textstat>=0.7.3           # Text statistics and readability
+wordcloud>=1.9.2          # Word cloud generation
+yake>=0.4.8              # Keyword extraction
+
+# Performance and Utilities
+dask>=2024.1.0           # Parallel processing
+numba>=0.58.0            # JIT compilation for speed
+memory-profiler>=0.61.0   # Memory usage monitoring
+
+# Optional: Advanced ML
+catboost>=1.2.0          # Gradient boosting (for predictive models)
+xgboost>=2.0.0           # Gradient boosting
+lightgbm>=4.1.0          # Gradient boosting
+
+# Data Quality and Profiling
+pandas-profiling>=3.6.0  # Automated data profiling
+great-expectations>=0.18.0  # Data validation
