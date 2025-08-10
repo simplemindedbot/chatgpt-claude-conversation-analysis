@@ -1,5 +1,5 @@
 # Generated files
-chat_analysis.db
+chat_analysis*.db
 *.db
 
 # Python
@@ -59,3 +59,4 @@ Thumbs.db
 chatgpt_conversations.json
 claude_conversations.json
 *_conversations.json
+/*this-session-is-being-continued-from-a-previous-co.txt

@@ -29,6 +29,9 @@ pip install -r requirements.txt
 
 # Download required spaCy model
 python -m spacy download en_core_web_sm
+
+# Download required NLTK resource (VADER sentiment lexicon)
+python -c "import nltk; nltk.download('vader_lexicon')"
 ```
 
 ### 2. Get Your Chat Data
@@ -153,13 +156,15 @@ analyzer.extract_features(batch_size=1000, core_fraction=0.5)  # Use 50% of core
 
 ## 📋 Requirements
 
-- Python 3.8+
+- Python 3.10+ (primary target; extensively tested)
+- Supported versions: 3.9–3.11
 - 4GB+ RAM (for large datasets)
 - Multi-core CPU recommended for optimal performance
 
 ### Key Dependencies
 
 - **NLP**: spaCy, NLTK, sentence-transformers
+- NLTK requires the VADER lexicon at runtime (install via: `python -c "import nltk; nltk.download('vader_lexicon')"`)
 - **Data**: pandas, numpy, sqlite3
 - **Visualization**: plotly, matplotlib, seaborn
 - **ML**: scikit-learn, transformers
@@ -221,6 +226,12 @@ pip install -r requirements.txt
 
 ```bash
 python -m spacy download en_core_web_sm
+```
+
+**"LookupError: Resource vader_lexicon not found"**: Install the NLTK VADER lexicon
+
+```bash
+python -c "import nltk; nltk.download('vader_lexicon')"
 ```
 
 **"Memory errors"**: Reduce batch size for large datasets

@@ -160,22 +160,28 @@ def _classify_content_type_standalone(content, has_questions, has_code):
         return 'general'
 
 class ChatAnalyzer:
-    def __init__(self, db_path="chat_analysis.db"):
+    def __init__(self, db_path="chat_analysis.db", load_models: bool = True):
         self.db_path = db_path
         self.conn = sqlite3.connect(db_path)
         self.setup_database()
 
-        # Initialize NLP tools
-        print("Loading NLP models - spaCy for entity recognition, SentenceTransformer for embeddings...")
-        self.nlp = spacy.load("en_core_web_sm")  # Install with: python -m spacy download en_core_web_sm
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Initialize NLP tools (can be skipped in tests with load_models=False)
+        if load_models:
+            print("Loading NLP models - spaCy for entity recognition, SentenceTransformer for embeddings...")
+            self.nlp = spacy.load("en_core_web_sm")  # Install with: python -m spacy download en_core_web_sm
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-        # Download NLTK data if needed
-        try:
-            self.sentiment_analyzer = SentimentIntensityAnalyzer()
-        except:
-            nltk.download('vader_lexicon')
-            self.sentiment_analyzer = SentimentIntensityAnalyzer()
+            # Download NLTK data if needed
+            try:
+                self.sentiment_analyzer = SentimentIntensityAnalyzer()
+            except:
+                nltk.download('vader_lexicon')
+                self.sentiment_analyzer = SentimentIntensityAnalyzer()
+        else:
+            # Placeholders to avoid attribute errors if methods that require models are called inadvertently
+            self.nlp = None
+            self.embedding_model = None
+            self.sentiment_analyzer = None
 
     def setup_database(self):
         """Create database schema"""
