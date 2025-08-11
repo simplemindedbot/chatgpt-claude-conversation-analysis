@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import json
 import sqlite3
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -283,7 +283,55 @@ def search_by_text(db_path: str, query: str, limit: int = 10) -> List[dict]:
     return engine.semantic_search_vec(query, limit=limit)
 
 
-if __name__ == "__main__":
+def get_code_snippets(db_path: str, language: Optional[str] = None, tag: Optional[str] = None, limit: int = 50) -> pd.DataFrame:
+    """Retrieve code snippets with optional filters by language or tag (technical term)."""
+    conn = _connect(db_path)
+    ensure_code_snippets_table(conn)
+    base = "SELECT id, message_id, conversation_id, source_ai, snippet_type, language, code, context_preview, sentiment_score, tags FROM code_snippets"
+    clauses = []
+    params: List = []
+    if language:
+        clauses.append("LOWER(language) = LOWER(?)")
+        params.append(language)
+    if tag:
+        clauses.append("tags LIKE ?")
+        params.append(f"%{tag}%")
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    q = f"{base}{where} ORDER BY sentiment_score DESC LIMIT ?"
+    params.append(limit)
+    return pd.read_sql_query(q, conn, params=params)
+
+
+def get_confusion_hotspots(db_path: str, limit: int = 20) -> pd.DataFrame:
+    """Return top conversations/messages indicating confusion using helper views; creates them if missing."""
+    try:
+        df = pd.read_sql_query("SELECT * FROM view_confusion_signals LIMIT ?", _connect(db_path), params=[limit])
+        if not df.empty:
+            return df
+    except Exception:
+        pass
+    # Ensure views exist then retry
+    create_gap_analysis_views(db_path)
+    conn = _connect(db_path)
+    return pd.read_sql_query("SELECT * FROM view_confusion_signals LIMIT ?", conn, params=[limit])
+
+
+def assistant_comparison_summary(db_path: str) -> Dict[str, Dict[str, float]]:
+    """Compute simple ChatGPT vs Claude effectiveness summary from conversation_features."""
+    conn = _connect(db_path)
+    df = pd.read_sql_query("SELECT source_ai, complexity_score, idea_density, duration_minutes FROM conversation_features", conn)
+    if df.empty:
+        return {}
+    agg = df.groupby("source_ai").agg(
+        complexity_mean=("complexity_score", "mean"),
+        idea_density_mean=("idea_density", "mean"),
+        duration_mean=("duration_minutes", "mean"),
+        count=("source_ai", "count"),
+    ).round(3)
+    return agg.to_dict(orient="index")
+
+
+if __name__ == "__main__": 
     import argparse
 
     parser = argparse.ArgumentParser(description="Phase 2 utilities: topics, code snippets, and gap-analysis views")

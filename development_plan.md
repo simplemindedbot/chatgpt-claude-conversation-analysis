@@ -69,7 +69,7 @@ Risks/Mitigations:
 
 ### Phase 2 (Analysis Enablement from Recommendations) — 2–3 weeks
 
-Status: In Progress (2025-08-09)
+Status: In Progress (2025-08-10)
 
 Implement the high-value mining features from data-mining-recommendations.md, leveraging the existing chat_analysis.db.
 
@@ -81,31 +81,34 @@ Implement the high-value mining features from data-mining-recommendations.md, le
     - Expose a query helper: search by text (embedding similarity) returning nearest conversations. ✓ (via SemanticSearchEngine + wrapper)
 
 - Learning Gap Analysis (Priority 1)
-  - Notebook modules/queries to: identify high question density with low explanation sentiment; surface recurring confusion topics. * (SQL views created; notebook cells to be added)
+  - Notebook modules/queries to: identify high question density with low explanation sentiment; surface recurring confusion topics. ✓ (SQL views created; notebook cells added in phase2_analysis_notebook.py)
   - Add saved SQL views or functions for repeatable queries. ✓ (view_confusion_signals, view_conversation_confusion)
 
 - Code Pattern Library (Priority 1)
   - Extract messages labeled Code, normalize code blocks, and store into a new code_snippets table with language (heuristic), related conversation_id, and brief context. ✓ (phase2_helpers.upsert_code_snippets)
-  - Provide retrieval utilities and tags (problem_type, technology) via simple heuristic NLP. * (tags via technical_terms persisted; retrieval utilities next)
+  - Provide retrieval utilities and tags (problem_type, technology) via simple heuristic NLP. ✓ (tags via technical_terms persisted; retrieval via get_code_snippets)
 
 - AI Assistant Optimization (Priority 1)
-  - Comparison notebook cells: ChatGPT vs Claude effectiveness across task types using sentiment, complexity, and idea density.
-  - Routing guidelines artifact (markdown cell or doc) summarizing which assistant excels in which task, based on the analysis.
+  - Comparison notebook cells: ChatGPT vs Claude effectiveness across task types using sentiment, complexity, and idea density. ✓ (assistant_comparison_summary + AdvancedChatMiner cell)
+  - Routing guidelines artifact (markdown cell or doc) summarizing which assistant excels in which task, based on the analysis. ✓ (notebook markdown section)
 
 Deliverables:
-- Expanded notebook sections and lightweight helper functions for clustering, similarity search, and code snippet extraction. * (helpers added; notebook to be expanded)
+- Expanded notebook sections and lightweight helper functions for clustering, similarity search, and code snippet extraction. ✓ (phase2_analysis_notebook.py added)
 - New DB tables/views: topics (optional), code_snippets, helper SQL views for gap analysis. ✓
 
 Acceptance criteria:
-- Reproducible notebook cells that create/update the new tables/views from an existing DB. *
-- Search-by-text returns relevant conversations. ✓
-- Code snippet extraction yields non-empty, queryable records for known code-heavy conversations. ✓
+- Reproducible notebook cells that:
+  - Re/create topics and views; upsert code_snippets from an existing DB ✓
+  - Query and visualize topics, code snippets, and gap analysis outputs ✓
+  - Run text semantic search and display top results with previews ✓
+  - Provide an “Assistant routing guidance” summary grounded in metrics ✓
 
 Dependencies:
 - BERTopic/UMAP/HDBSCAN optional; ensure graceful degradation when not installed (as per guidelines).
 
 Notes:
 - New helper module added: phase2_helpers.py with CLI for creating topics/code_snippets/views and a text search wrapper.
+- Timestamp normalization improved in normalization and enforced in DB post-ingest; notebook uses UTC-aware conversions. ✓
 
 ---
 

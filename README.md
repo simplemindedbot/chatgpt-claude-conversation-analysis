@@ -13,7 +13,9 @@ A comprehensive Python-based analysis pipeline for processing and analyzing AI c
 
 ## 🚀 Quick Start
 
-### 1. Setup Environment
+This section provides the exact order of operations and copy-paste commands to go from a fresh clone to interactive analysis.
+
+### 1. Setup Environment (Python 3.10+ recommended)
 
 ```bash
 # Clone the repository
@@ -22,44 +24,82 @@ cd chat-analysis
 
 # Create and activate virtual environment
 python -m venv chat_analysis_env
-source chat_analysis_env/bin/activate  # On Windows: chat_analysis_env\Scripts\activate
+source chat_analysis_env/bin/activate  # Windows: chat_analysis_env\Scripts\activate
 
-# Install dependencies
+# Install core dependencies
 pip install -r requirements.txt
 
-# Download required spaCy model
+# Install required runtime resources
 python -m spacy download en_core_web_sm
-
-# Download required NLTK resource (VADER sentiment lexicon)
 python -c "import nltk; nltk.download('vader_lexicon')"
 ```
+
+Notes:
+- Supported Python versions: 3.9–3.11. Primary target tested most: 3.10+.
+- First-time installs will download model artifacts (Hugging Face, spaCy, transformers), which may take time.
 
 ### 2. Get Your Chat Data
 
 #### ChatGPT Data Export
-
 1. Follow the instructions on [ChatGPT Data Controls](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data)
 2. Click "Export data"
 3. Wait for email with download link
-4. Extract the `conversations.json` file and rename to `chatgpt_conversations.json`
+4. Extract the `conversations.json` file and rename it to `chatgpt_conversations.json` and place it in the project root
 
-#### Claude Data Export  
-
+#### Claude Data Export
 1. Go to [Claude Privacy Controls](https://claude.ai/settings/data-privacy-controls)
 2. Click "Export data"
 3. Download the export file
-4. Extract the `conversations.json` file and rename to `claude_conversations.json`
+4. Extract the `conversations.json` file and rename it to `claude_conversations.json` and place it in the project root
 
-### 3. Process Your Data
+### 3. Normalize Raw Exports → CSV
+
+By default, the normalizer looks for `./chatgpt_conversations.json` and `./claude_conversations.json` and writes `combined_ai_chat_history.csv` to the project root.
 
 ```bash
-# Step 1: Normalize raw exports to CSV
 python normalize_chats.py
+# Output: combined_ai_chat_history.csv
+```
 
-# Step 2: Run full NLP analysis pipeline
+If your files are elsewhere, you can call the function programmatically:
+
+```python
+from normalize_chats import merge_and_save_normalized_data
+merge_and_save_normalized_data(
+    "/path/to/chatgpt_conversations.json",
+    "/path/to/claude_conversations.json",
+    "combined_ai_chat_history.csv"
+)
+```
+
+### 4. Validate Environment (Dry Run — optional but recommended)
+
+```bash
+python process_runner.py combined_ai_chat_history.csv --dry-run
+```
+This checks: CSV presence, spaCy model, NLTK VADER, and SQLite writability.
+
+### 5. Run Full NLP Pipeline
+
+```bash
+# Defaults (good starting point)
 python process_runner.py combined_ai_chat_history.csv
 
-# Step 3: Open interactive analysis notebook
+# Example with custom settings
+python process_runner.py combined_ai_chat_history.csv \
+  --batch-size 500 \
+  --embed-batch-size 50 \
+  --no-multiprocessing \
+  --core-fraction 0.5 \
+  --log-level INFO \
+  --resume
+```
+
+This creates/updates `chat_analysis.db` in the project root.
+
+### 6. Explore Results in the Notebook
+
+```bash
 jupyter notebook chat_analysis_notebook.ipynb
 ```
 
@@ -167,21 +207,33 @@ The pipeline automatically classifies messages into categories:
 - **Debug**: Problem-solving and troubleshooting
 - **General**: Regular conversational content
 
-## 🛠️ Configuration
+## 🛠️ Configuration and CLI Reference
 
-### Processing Options
+### process_runner.py options
 
-- `batch_size`: Messages per processing batch (default: 500)
-- `use_multiprocessing`: Enable/disable parallel processing (default: True)
-- `core_fraction`: Fraction of CPU cores to use (default: 0.75)
+- `csv_path` (positional): Path to the normalized CSV (e.g., combined_ai_chat_history.csv)
+- `--batch-size`: Feature extraction batch size (default: 500)
+- `--embed-batch-size`: Embedding generation batch size (default: 50)
+- `--use-multiprocessing` / `--no-multiprocessing`: Toggle multiprocessing (default: enabled)
+- `--core-fraction`: Fraction of CPU cores to use when multiprocessing (default: 0.75)
+- `--dry-run`: Validate inputs and environment without running heavy jobs
+- `--resume`: Resume processing (pipeline is idempotent and safely skips already-processed items)
+- `--log-level`: Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL). Default: INFO
 
-### Example Custom Processing
+### Programmatic usage
 
 ```python
 from chat_analysis_setup import ChatAnalyzer
 
 analyzer = ChatAnalyzer()
-analyzer.extract_features(batch_size=1000, core_fraction=0.5)  # Use 50% of cores
+# Ingest CSV
+analyzer.ingest_csv("combined_ai_chat_history.csv")
+# Extract features
+analyzer.extract_features(batch_size=1000, use_multiprocessing=False, core_fraction=0.5)
+# Generate embeddings
+analyzer.generate_embeddings(batch_size=50)
+# Analyze conversations
+analyzer.analyze_conversations()
 ```
 
 ## 📋 Requirements
@@ -200,18 +252,32 @@ analyzer.extract_features(batch_size=1000, core_fraction=0.5)  # Use 50% of core
 - **ML**: scikit-learn, transformers
 - **Development**: jupyter, tqdm
 
+### Platform specifics / compiled deps
+
+- Optional advanced mining uses packages like BERTopic, UMAP, and HDBSCAN which may require C/C++ build tools on macOS/Linux.
+- If you only need the lightweight pipeline, you can skip installing optional deps (requirements_advanced_mining.txt).
+
 ## 🗂️ Project Structure
 
 ``` txt
 chat-analysis/
-├── normalize_chats.py              # JSON to CSV conversion
-├── chat_analysis_setup.py          # Main NLP processing class
-├── process_runner.py               # CLI pipeline orchestrator
-├── chat_analysis_notebook.ipynb    # Interactive analysis dashboard
-├── sample_chat_history.csv         # Sample data for testing
-├── requirements.txt                # Python dependencies
-├── chat_analysis_env/              # Virtual environment
-└── README.md                       # This file
+├── normalize_chats.py               # JSON to CSV conversion
+├── chat_analysis_setup.py           # Main NLP processing class
+├── process_runner.py                # CLI pipeline orchestrator (dry-run, flags)
+├── chat_analysis_notebook.ipynb     # Interactive analysis dashboard
+├── phase2_analysis_notebook.ipynb   # Additional analysis (optional)
+├── phase2_analysis_notebook.py      # Py version of Phase 2 analysis utilities (optional)
+├── phase2_helpers.py                # Helpers for Phase 2 analysis (optional)
+├── semantic_search_tool.py          # Example semantic search utility (optional)
+├── advanced_data_mining.py          # Advanced mining utilities (optional)
+├── requirements.txt                 # Core Python dependencies
+├── requirements_advanced_mining.txt # Optional heavy deps for advanced mining
+├── sample_chat_history.csv          # Sample data for testing
+├── chatgpt_conversations.json       # Your ChatGPT export (rename + place here)
+├── claude_conversations.json        # Your Claude export (rename + place here)
+├── combined_ai_chat_history.csv     # Normalized output CSV
+├── chat_analysis.db                 # SQLite database (generated)
+└── README.md                        # This file
 ```
 
 ## 🎯 Use Cases
@@ -278,6 +344,74 @@ python process_runner.py your_file.csv --batch-size 100
 - Ensure sufficient RAM (4GB+ recommended for large datasets)
 - Adjust `core_fraction` parameter based on system resources
 - Consider processing in smaller chunks for very large datasets
+
+## ✅ Quick Smoke Checks (no heavy models)
+
+Run a lightweight pipeline verification without downloading large embedding models:
+
+```bash
+python - <<'PY'
+from normalize_chats import merge_and_save_normalized_data
+import json, tempfile, os
+chatgpt=[{"id":"c","title":"t","mapping":{"n":{"message":{"id":"m","author":{"role":"user"},"create_time":1700000000,"content":{"content_type":"text","parts":["hi"]}}}}}]
+claude=[{"uuid":"u","name":"t","chat_messages":[{"uuid":"x","sender":"assistant","created_at":"2023-11-14T12:00:00Z","content":[{"type":"text","text":"hello"}]}]}]
+with tempfile.NamedTemporaryFile('w',suffix='.json',delete=False) as a, tempfile.NamedTemporaryFile('w',suffix='.json',delete=False) as b, tempfile.TemporaryDirectory() as d:
+    json.dump(chatgpt,a); ap=a.name
+    json.dump(claude,b); bp=b.name
+    out=os.path.join(d,'out.csv')
+    merge_and_save_normalized_data(ap,bp,out)
+    print('OK', os.path.exists(out))
+PY
+```
+
+## 🧪 Testing
+
+This repo uses the standard library unittest (no hard dependency on pytest).
+
+- Discover and run tests:
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -q
+```
+
+- Keep tests fast and deterministic; unit tests target normalization and DB setup. Avoid end-to-end embedding generation in unit tests.
+
+## 🧠 Optional: Advanced Data Mining
+
+For knowledge-graph/topic-mining features or heavier analyses, additional packages may be required.
+
+- Install optional deps (may require system build tools on macOS/Linux):
+
+```bash
+pip install -r requirements_advanced_mining.txt
+```
+
+Notes:
+- Some platforms may need C/C++ build tools for UMAP/HDBSCAN.
+- If you only need the lightweight pipeline, you can skip this file.
+
+## 🔎 Optional: Semantic Search Tool
+
+After running the full pipeline (embeddings generated), you can run semantic searches over your chats.
+
+```python
+from semantic_search_tool import SemanticSearchEngine
+
+engine = SemanticSearchEngine(db_path="chat_analysis.db")
+# If you installed sqlite-vec, this will use it automatically; otherwise uses a fallback
+engine.load_embeddings_into_vec()  # no-op if sqlite-vec not available
+
+# Query
+results = engine.semantic_search_vec("vector databases in sqlite", limit=5)
+for r in results:
+    print(r["distance"], r["source_ai"], r["timestamp"], r["content"][:120])
+```
+
+CLI (if available in the module):
+
+```bash
+python semantic_search_tool.py --help
+```
 
 ## 📞 Support
 
